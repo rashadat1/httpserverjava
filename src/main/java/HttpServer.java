@@ -23,8 +23,9 @@ public class HttpServer implements Runnable {
 
       InputStream inputStream = clientSocket.getInputStream();
       OutputStream outputStream = clientSocket.getOutputStream();
-      HttpParser httpParser = new HttpParser(inputStream, this.directory, null, false, null, null, null, null, 0, null);
+      HttpParser httpParser = new HttpParser(inputStream, this.directory);
       String response = httpParser.parseAndReturnHttpResponseString();
+      System.out.println("Response from Http Server:\r\n" + response);
       outputStream.write(response.getBytes());
     } catch (IOException e) {
       System.err.println("IO Exception occurred while initializing input/output stream or reading/writing: " + e.getMessage());

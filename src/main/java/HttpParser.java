@@ -25,18 +25,26 @@ public class HttpParser {
     String requestBody;
     int contentLength;
     char[] parsedBody;
+    Set<String> validEncodings;
+    String contentType;
+    int responseContentLength;
+    String clientEncoding;
 
-    public HttpParser(InputStream inputStream, String directory, String urlPath, boolean isConnectionInitializer, String version, String userAgent, String host, String requestBody, int contentLength, char[] parsedBody) {
+    public HttpParser(InputStream inputStream, String directory) {
         this.inputStream = inputStream;
         this.directory = directory;
-        this.urlPath = urlPath;
-        this.isConnectionInitializer = isConnectionInitializer;
-        this.version = version;
-        this.userAgent = userAgent;
-        this.host = host;
-        this.requestBody = requestBody;
-        this.contentLength = contentLength;
-        this.parsedBody = parsedBody;
+        this.urlPath = null;
+        this.isConnectionInitializer = false;
+        this.version = null;
+        this.userAgent = null;
+        this.host = null;
+        this.requestBody = null;
+        this.contentLength = 0;
+        this.parsedBody = null;
+        this.validEncodings = null;
+        this.contentType = null;
+        this.responseContentLength = 0;
+        this.clientEncoding = null;
     }
 
     private boolean isValidMethod(String statusLineMethod) {
@@ -96,6 +104,7 @@ public class HttpParser {
                     throw new MalformedRequestException("Malformed user-agent header: " + line);
                 }
                 this.userAgent = line.split("User-Agent: ")[1].trim();
+                this.responseContentLength = this.userAgent.length();
             } else if (line.startsWith("Host: ")) {
                 if (line.split("Host: ").length != 2) {
                     throw new MalformedRequestException("Malformed host header: " + line);
@@ -106,6 +115,20 @@ public class HttpParser {
                     throw new MalformedRequestException("Malformed Content-Length header: " + line);
                 }
                 this.contentLength = Integer.parseInt(line.split("Content-Length: ")[1].trim());
+            } else if (line.startsWith("Content-Type: ")) {
+                if (line.split("Content-Type: ").length != 2) {
+                    throw new MalformedRequestException("Malformed Content-Type header: " + line);
+                }
+                this.contentType = line.split("Content-Type: ")[1].trim();
+            } else if (line.startsWith("Accept-Encoding: ")) {
+                if (line.split("Accept-Encoding: ").length != 2) {
+                    throw new MalformedRequestException("Malformed Accept-Encoding: " + line);
+                }
+                String commaSeparatedEncodings = line.split("Accept-Encoding: ")[1].trim();
+                this.validEncodings = new HashSet<>(Set.of(commaSeparatedEncodings.split(", ")));
+                if (this.validEncodings.contains("gzip")) {
+                    this.clientEncoding = "gzip";
+                }
             }
         }
     }
@@ -123,9 +146,10 @@ public class HttpParser {
         Matcher matcher = pattern.matcher(this.urlPath.trim());
         matcher.find();
 
+        this.contentType = "text/plain";
         String toEcho = matcher.group(1);
-        String echoResponse = this.version + " 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + toEcho.length() + "\r\n\r\n" + toEcho;
-        return echoResponse;  
+        this.responseContentLength = toEcho.length();
+        return toEcho;
     }
 
     private String handleFileEndpointGET() throws IOException {
@@ -133,7 +157,7 @@ public class HttpParser {
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(this.urlPath.trim());
         matcher.find();
-
+        this.contentType = "application/octet-stream";
         String fileToOpen = matcher.group(1);
         String fullFilePathToOpen = this.directory + fileToOpen;
         System.out.println("File path to open: " + fullFilePathToOpen);
@@ -144,8 +168,8 @@ public class HttpParser {
             while ((line = in.readLine()) != null) {
                 fileContents += line;
             }
-            String fileResponse = this.version + " 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + fileContents.length() + "\r\n\r\n" + fileContents;
-            return fileResponse;
+            this.responseContentLength = fileContents.length();
+            return fileContents;
         }
     }
 
@@ -170,48 +194,39 @@ public class HttpParser {
         return "HTTP/1.1 201 Created\r\n\r\n";
     }
 
-    private String handleUserAgentEndpoint() throws MalformedRequestException {
-        if (this.userAgent != null) {
-            return this.version + " 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + this.userAgent.length() + "\r\n\r\n" + this.userAgent;
-        } else {
-            throw new MalformedRequestException("Request to /user-agent endpoint must have User-Agent header");
-        }
-    }
-
-    private String handleConnectionEndpoint() {
-        return "";
-    }
-
-    private String handleRootEndpoint() {
-        return this.version + " 200 OK\r\n\r\n";
-    }
-
     private String httpResponse() throws MalformedRequestException, IOException, FileNotFoundException {
-        String response = null;
+        String response = "";
         if (this.urlPath.startsWith("/echo/")) {
             response = this.handleEchoEndpoint();
 
         } else if (this.urlPath.startsWith("/files/")) {
             if (this.requestMethod.equals("GET")) {
                 response = this.handleFileEndpointGET();
+
             } else if (this.requestMethod.equals("POST")) {
-                System.out.println("POST request rerceived to /files/ endpoint");
+                System.out.println("POST request received to /files/ endpoint");
                 response = this.handleFileEndpointPOST();
+                return response;
             }
-
         } else if (this.urlPath.startsWith("/user-agent")) {
-            response = this.handleUserAgentEndpoint();
-
-        } else if (this.urlPath.equals("")) {
-            response = this.handleConnectionEndpoint();
-            
-        } else if (this.urlPath.equals("/")) {
-            response = this.handleRootEndpoint();
-
-        } else {
-            throw new MalformedRequestException("Uncaught malformed request");
+            this.contentType = "text/plain";
+            response = this.userAgent;
         }
-        return response;
+
+        StringBuilder fullResponse = new StringBuilder(this.version);
+        fullResponse.append(" 200 OK\r\n");
+        if (this.contentType != null) {
+            fullResponse.append("Content-Type: ").append(this.contentType).append("\r\n");
+        }
+        if (this.responseContentLength != 0) {
+            fullResponse.append("Content-Length: ").append(this.responseContentLength).append("\r\n");
+        }
+        if (this.clientEncoding != null) {
+            fullResponse.append("Content-Encoding: ").append(this.clientEncoding).append("\r\n");
+        }
+        fullResponse.append("\r\n");
+        fullResponse.append(response);
+        return fullResponse.toString();
     }
     private void requestParse() throws IOException, MalformedRequestException, ResourceNotFoundException {
         BufferedReader in = new BufferedReader(new InputStreamReader(this.inputStream));
