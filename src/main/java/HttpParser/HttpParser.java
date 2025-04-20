@@ -1,3 +1,4 @@
+package HttpParser;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -14,6 +15,10 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPOutputStream;
+
+import HttpResponderObject.HttpResponseText;
+import customExceptions.MalformedRequestException;
+import customExceptions.ResourceNotFoundException;
 
 public class HttpParser {
     InputStream inputStream;
@@ -32,7 +37,7 @@ public class HttpParser {
     int responseContentLength;
     String clientEncoding;
     String endPointResponseBody;
-    boolean closeConnection;
+    public boolean closeConnection;
     String connectionHeaderValue;
 
     public HttpParser(InputStream inputStream, String directory) {

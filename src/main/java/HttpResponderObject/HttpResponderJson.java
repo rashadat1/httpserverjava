@@ -1,10 +1,11 @@
+package HttpResponderObject;
 import org.json.JSONObject;
 
-public class HttpResponseJson extends HttpResponse {
+public class HttpResponderJson extends HttpResponder {
     JSONObject responseJson;
     String headers;
 
-    public HttpResponseJson(JSONObject responseJson, String headers) {
+    public HttpResponderJson(JSONObject responseJson, String headers) {
         this.responseJson = responseJson;
         this.headers = headers;
     }
