@@ -25,7 +25,7 @@ public class HttpServer implements Runnable {
         InputStream inputStream = clientSocket.getInputStream();
         OutputStream outputStream = clientSocket.getOutputStream();
         HttpParser httpParser = new HttpParser(inputStream, this.directory);
-        HttpResponseForCompression response = httpParser.parseAndReturnHttpResponseString();
+        HttpResponseText response = httpParser.parseAndReturnHttpResponseString();
         System.out.println("Response from Http Server:\r\n" + response.httpResponse);
 
         outputStream.write(response.httpResponse.getBytes());

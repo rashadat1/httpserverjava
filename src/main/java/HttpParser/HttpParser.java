@@ -211,7 +211,7 @@ public class HttpParser {
         return "HTTP/1.1 201 Created\r\n\r\n";
     }
 
-    private HttpResponseForCompression httpResponse() throws MalformedRequestException, IOException, FileNotFoundException {
+    private HttpResponseText httpResponse() throws MalformedRequestException, IOException, FileNotFoundException {
         String response = "";
         byte[] responseBodyBytes = new byte[0];
         if (this.urlPath.startsWith("/echo/")) {
@@ -223,7 +223,7 @@ public class HttpParser {
             } else if (this.requestMethod.equals("POST")) {
                 System.out.println("POST request received to /files/ endpoint");
                 response = this.handleFileEndpointPOST();
-                return new HttpResponseForCompression(response);
+                return new HttpResponseText(response);
             }
         } else if (this.urlPath.startsWith("/user-agent")) {
             this.contentType = "text/plain";
@@ -259,12 +259,12 @@ public class HttpParser {
         if (this.clientEncoding != null && this.clientEncoding.equals("gzip") && this.endPointResponseBody != "") {
           System.out.println("Encoding response body to client with " + this.clientEncoding);
           // if there is a client encoding and a non-empty response body we need to write the compressed bytes so we return the response for compression object
-          return new HttpResponseForCompression(fullResponse.toString(), responseBodyBytes);
+          return new HttpResponseText(fullResponse.toString(), responseBodyBytes);
         }
         // if there is no client encoding just append the body as a string and return the whole response wrapped in the compression object
         fullResponse.append(this.endPointResponseBody);
  
-        return new HttpResponseForCompression(fullResponse.toString());
+        return new HttpResponseText(fullResponse.toString());
     }
     private void requestParse() throws IOException, MalformedRequestException, ResourceNotFoundException {
         BufferedReader in = new BufferedReader(new InputStreamReader(this.inputStream));
@@ -280,16 +280,16 @@ public class HttpParser {
         }
     }
 
-    public HttpResponseForCompression parseAndReturnHttpResponseString() throws IOException, MalformedRequestException {
+    public HttpResponseText parseAndReturnHttpResponseString() throws IOException, MalformedRequestException {
         try {
             this.requestParse();
             return httpResponse();
         } catch (ResourceNotFoundException e) {
             System.err.println("Resource Not Found Exception occurred: " + e.getMessage());
-            return new HttpResponseForCompression(e.returnResponse("HTTP/1.1"));
+            return new HttpResponseText(e.returnResponse("HTTP/1.1"));
         } catch (FileNotFoundException e) {
             System.err.println("File Not Found Exception occurred while processing files/{file} endpoint request: " + e.getMessage());
-            return new HttpResponseForCompression("HTTP/1.1 404 Not Found\r\n\r\n");
+            return new HttpResponseText("HTTP/1.1 404 Not Found\r\n\r\n");
         }
     }
 }
