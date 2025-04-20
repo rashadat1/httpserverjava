@@ -19,19 +19,33 @@ public class HttpServer implements Runnable {
   }
 
   private void handleClient(Socket clientSocket) {
-    try {
+    while (true) {
+      try {
 
-      InputStream inputStream = clientSocket.getInputStream();
-      OutputStream outputStream = clientSocket.getOutputStream();
-      HttpParser httpParser = new HttpParser(inputStream, this.directory);
-      String response = httpParser.parseAndReturnHttpResponseString();
-      System.out.println("Response from Http Server:\r\n" + response);
-      outputStream.write(response.getBytes());
-    } catch (IOException e) {
-      System.err.println("IO Exception occurred while initializing input/output stream or reading/writing: " + e.getMessage());
-    } catch (MalformedRequestException e) {
-      System.err.println("Malformed Request Exception occurred while parsing http header/body: " + e.getMessage());
+        InputStream inputStream = clientSocket.getInputStream();
+        OutputStream outputStream = clientSocket.getOutputStream();
+        HttpParser httpParser = new HttpParser(inputStream, this.directory);
+        HttpResponseForCompression response = httpParser.parseAndReturnHttpResponseString();
+        System.out.println("Response from Http Server:\r\n" + response.httpResponse);
+
+        outputStream.write(response.httpResponse.getBytes());
+        if (response.encodedBody != null) {
+          System.out.println("Additionally writing encoded response body");
+          outputStream.write(response.encodedBody);
+        }
+        if (httpParser.closeConnection) {
+          clientSocket.close();
+          break;
+        }
+      } catch (IOException e) {
+        System.err.println("IO Exception occurred while initializing input/output stream or reading/writing: " + e.getMessage());
+        break;
+      } catch (MalformedRequestException e) {
+        System.err.println("Malformed Request Exception occurred while parsing http header/body: " + e.getMessage());
+        break;
+      }
     }
+
   }
 
   @Override
@@ -42,6 +56,7 @@ public class HttpServer implements Runnable {
       // no shutdown configured to occur programmatically - always on
       while (true) {
         Socket clientSocket = serverSocket.accept();
+        clientSocket.setKeepAlive(true);
         pool.submit(() -> handleClient(clientSocket));
       }
     } catch (IOException e) {

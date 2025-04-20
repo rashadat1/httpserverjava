@@ -1,6 +1,7 @@
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -12,6 +13,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.GZIPOutputStream;
 
 public class HttpParser {
     InputStream inputStream;
@@ -29,6 +31,9 @@ public class HttpParser {
     String contentType;
     int responseContentLength;
     String clientEncoding;
+    String endPointResponseBody;
+    boolean closeConnection;
+    String connectionHeaderValue;
 
     public HttpParser(InputStream inputStream, String directory) {
         this.inputStream = inputStream;
@@ -45,6 +50,9 @@ public class HttpParser {
         this.contentType = null;
         this.responseContentLength = 0;
         this.clientEncoding = null;
+        this.endPointResponseBody = "";
+        this.closeConnection = false;
+        this.connectionHeaderValue = null;
     }
 
     private boolean isValidMethod(String statusLineMethod) {
@@ -122,13 +130,22 @@ public class HttpParser {
                 this.contentType = line.split("Content-Type: ")[1].trim();
             } else if (line.startsWith("Accept-Encoding: ")) {
                 if (line.split("Accept-Encoding: ").length != 2) {
-                    throw new MalformedRequestException("Malformed Accept-Encoding: " + line);
+                    throw new MalformedRequestException("Malformed Accept-Encoding header: " + line);
                 }
                 String commaSeparatedEncodings = line.split("Accept-Encoding: ")[1].trim();
                 this.validEncodings = new HashSet<>(Set.of(commaSeparatedEncodings.split(", ")));
                 if (this.validEncodings.contains("gzip")) {
                     this.clientEncoding = "gzip";
                 }
+            } else if (line.startsWith("Connection: ")) {
+              if (line.split("Connection: ").length != 2) {
+                throw new MalformedRequestException("Malformed Connection header: " + line);
+              }
+              String connectionValue = line.split("Connection: ")[1].trim();
+              if (connectionValue.equalsIgnoreCase("close")) {
+                this.closeConnection = true;
+              }
+              this.connectionHeaderValue = connectionValue;
             }
         }
     }
@@ -194,27 +211,38 @@ public class HttpParser {
         return "HTTP/1.1 201 Created\r\n\r\n";
     }
 
-    private String httpResponse() throws MalformedRequestException, IOException, FileNotFoundException {
+    private HttpResponseForCompression httpResponse() throws MalformedRequestException, IOException, FileNotFoundException {
         String response = "";
+        byte[] responseBodyBytes = new byte[0];
         if (this.urlPath.startsWith("/echo/")) {
-            response = this.handleEchoEndpoint();
-
+            this.endPointResponseBody = this.handleEchoEndpoint();
         } else if (this.urlPath.startsWith("/files/")) {
             if (this.requestMethod.equals("GET")) {
-                response = this.handleFileEndpointGET();
+                this.endPointResponseBody = this.handleFileEndpointGET();
 
             } else if (this.requestMethod.equals("POST")) {
                 System.out.println("POST request received to /files/ endpoint");
                 response = this.handleFileEndpointPOST();
-                return response;
+                return new HttpResponseForCompression(response);
             }
         } else if (this.urlPath.startsWith("/user-agent")) {
             this.contentType = "text/plain";
-            response = this.userAgent;
+            this.endPointResponseBody = this.userAgent;
         }
-
+        System.out.println("Building full response");
         StringBuilder fullResponse = new StringBuilder(this.version);
         fullResponse.append(" 200 OK\r\n");
+        
+        if (this.clientEncoding != null && this.clientEncoding.equals("gzip") && (this.endPointResponseBody != "")) {
+          System.out.println("Getting gzip compression of response body");
+          // if we have a client Encoding specified and we have a non-empty response body we should encode it
+          ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
+          try (GZIPOutputStream gzipOut = new GZIPOutputStream(byteOut)) {
+            gzipOut.write(this.endPointResponseBody.getBytes());
+          }
+          responseBodyBytes = byteOut.toByteArray();
+          this.responseContentLength = responseBodyBytes.length; 
+        }
         if (this.contentType != null) {
             fullResponse.append("Content-Type: ").append(this.contentType).append("\r\n");
         }
@@ -224,9 +252,19 @@ public class HttpParser {
         if (this.clientEncoding != null) {
             fullResponse.append("Content-Encoding: ").append(this.clientEncoding).append("\r\n");
         }
+        if (this.connectionHeaderValue != null) {
+            fullResponse.append("Connection: ").append(this.connectionHeaderValue).append("\r\n");
+        }
         fullResponse.append("\r\n");
-        fullResponse.append(response);
-        return fullResponse.toString();
+        if (this.clientEncoding != null && this.clientEncoding.equals("gzip") && this.endPointResponseBody != "") {
+          System.out.println("Encoding response body to client with " + this.clientEncoding);
+          // if there is a client encoding and a non-empty response body we need to write the compressed bytes so we return the response for compression object
+          return new HttpResponseForCompression(fullResponse.toString(), responseBodyBytes);
+        }
+        // if there is no client encoding just append the body as a string and return the whole response wrapped in the compression object
+        fullResponse.append(this.endPointResponseBody);
+ 
+        return new HttpResponseForCompression(fullResponse.toString());
     }
     private void requestParse() throws IOException, MalformedRequestException, ResourceNotFoundException {
         BufferedReader in = new BufferedReader(new InputStreamReader(this.inputStream));
@@ -242,16 +280,16 @@ public class HttpParser {
         }
     }
 
-    public String parseAndReturnHttpResponseString() throws IOException, MalformedRequestException {
+    public HttpResponseForCompression parseAndReturnHttpResponseString() throws IOException, MalformedRequestException {
         try {
             this.requestParse();
-            return this.httpResponse();
+            return httpResponse();
         } catch (ResourceNotFoundException e) {
             System.err.println("Resource Not Found Exception occurred: " + e.getMessage());
-            return e.returnResponse("HTTP/1.1");
+            return new HttpResponseForCompression(e.returnResponse("HTTP/1.1"));
         } catch (FileNotFoundException e) {
             System.err.println("File Not Found Exception occurred while processing files/{file} endpoint request: " + e.getMessage());
-            return "HTTP/1.1 404 Not Found\r\n\r\n";
+            return new HttpResponseForCompression("HTTP/1.1 404 Not Found\r\n\r\n");
         }
     }
 }
