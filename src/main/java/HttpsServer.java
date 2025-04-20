@@ -43,6 +43,16 @@ public class HttpsServer extends HttpServer {
             SSLServerSocketFactory sslServerSocketFactory = sslContext.getServerSocketFactory();
 
             SSLServerSocket serverSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(this.port);
+
+            serverSocket.setEnabledProtocols(new String[] { "TLSv1.2", "TLSv1.3" });
+            
+            String[] strongSuites = {
+                "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+                "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+                "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"
+            };
+            serverSocket.setEnabledCipherSuites((strongSuites));
+            
             serverSocket.setReuseAddress(true);
             while (true) {
                 SSLSocket clientSocket = (SSLSocket) serverSocket.accept();
