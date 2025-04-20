@@ -1,3 +1,4 @@
+package customExceptions;
 public class ResourceNotFoundException extends Exception {
     public ResourceNotFoundException(String message) {
         super("404 Not Found: " + message);

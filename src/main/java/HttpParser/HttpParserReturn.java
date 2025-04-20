@@ -9,8 +9,9 @@ public class HttpParserReturn {
     public String requestBody;
     public String version;
     public HashMap<String, String> returnHeaders;
+    public String directory;
 
-    public HttpParserReturn(String requestUrl, String requestMethod, HashMap<String, String> queryParams, HashMap<String, String> headers, String requestBody, String version, HashMap<String, String> returnHeaders) {
+    public HttpParserReturn(String requestUrl, String requestMethod, HashMap<String, String> queryParams, HashMap<String, String> headers, String requestBody, String version, HashMap<String, String> returnHeaders, String directory) {
         this.requestUrl = requestUrl;
         this.requestMethod = requestMethod;
         this.queryParams =  queryParams;
@@ -18,6 +19,7 @@ public class HttpParserReturn {
         this.requestBody = requestBody;
         this.version = version;
         this.returnHeaders = returnHeaders;
+        this.directory = directory;
 
     }
 }

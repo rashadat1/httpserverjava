@@ -14,7 +14,7 @@ public class EndpointHandlerFactory {
         } else if (this.httpParserReturn.requestUrl.startsWith("/echo/")) {
             return new Echo(httpParserReturn);
         } else if (this.httpParserReturn.requestUrl.startsWith("/files/")) {
-            return new Files(httpParserReturn);
+            return new files(httpParserReturn);
         } else if (this.httpParserReturn.requestUrl.startsWith("user-agent")) {
             return new UserAgent(httpParserReturn);
         }
