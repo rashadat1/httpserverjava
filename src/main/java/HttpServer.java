@@ -18,7 +18,7 @@ public class HttpServer implements Runnable {
     this.directory = directory;
   }
 
-  private void handleClient(Socket clientSocket) {
+  protected void handleClient(Socket clientSocket) {
     while (true) {
       try {
 
