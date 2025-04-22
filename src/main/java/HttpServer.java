@@ -6,6 +6,9 @@ import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import HttpParser.HttpParser;
+import customExceptions.MalformedRequestException;
+
 
 public class HttpServer implements Runnable {
   private final int port;
@@ -24,15 +27,13 @@ public class HttpServer implements Runnable {
 
         InputStream inputStream = clientSocket.getInputStream();
         OutputStream outputStream = clientSocket.getOutputStream();
+        
         HttpParser httpParser = new HttpParser(inputStream, this.directory);
-        HttpResponseText response = httpParser.parseAndReturnHttpResponseString();
-        System.out.println("Response from Http Server:\r\n" + response.httpResponse);
+        httpParser.parseAndReturnHttpResponseString();
+        String response = "";
+        System.out.println("Response from Http Server:\r\n" + response);
 
-        outputStream.write(response.httpResponse.getBytes());
-        if (response.encodedBody != null) {
-          System.out.println("Additionally writing encoded response body");
-          outputStream.write(response.encodedBody);
-        }
+        outputStream.write(response.getBytes());
         if (httpParser.closeConnection) {
           clientSocket.close();
           break;

@@ -12,6 +12,7 @@ public class P12Reader {
     public P12Reader() {
         this.keyStore = null;
     }
+
     public void readP12File() {
         try {
             FileInputStream fis = new FileInputStream(System.getProperty("user.dir") + "/../../../keystore.p12");
@@ -29,7 +30,8 @@ public class P12Reader {
         } catch (CertificateException e) {
             System.out.println("Error occurred while reading keystore.p12 stored certificate: " + e.getMessage());
         } catch (IOException e) {
-            System.out.println("Error occurred while reading / writing from / to keystore.p12 input stream: " + e.getMessage());
+            System.out.println(
+                    "Error occurred while reading / writing from / to keystore.p12 input stream: " + e.getMessage());
         }
     }
 }

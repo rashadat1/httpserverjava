@@ -1,23 +1,24 @@
 package api.v1;
 
-import HttpParser.HttpParserReturn;
+import HttpParser.HttpParseSuccess;
 import HttpResponderObject.HttpResponder;
 import HttpResponderObject.HttpResponderText;
+import api.v1.routers.EndpointHandler;
 import customExceptions.ResourceNotFoundException;
 
 public class Root implements EndpointHandler {
-    HttpParserReturn httpParserReturn;
+    HttpParseSuccess HttpParseSuccess;
 
-    public Root(HttpParserReturn httpParserReturn) {
-        this.httpParserReturn = httpParserReturn;
+    public Root(HttpParseSuccess HttpParseSuccess) {
+        this.HttpParseSuccess = HttpParseSuccess;
     }
     @Override
     public HttpResponder handle() throws ResourceNotFoundException {
-        if (!this.httpParserReturn.requestMethod.equals("GET")) {
-            String response = this.httpParserReturn.version + " 200 OK\r\n";
-            return new HttpResponderText(response.getBytes());
+        if (!this.HttpParseSuccess.requestMethod.equals("GET")) {
+            String response = this.HttpParseSuccess.version + " 200 OK\r\n";
+            return new HttpResponderText(response);
         } else {
-            throw new ResourceNotFoundException("Invalid request method for this resource: " + this.httpParserReturn.requestUrl);
+            throw new ResourceNotFoundException("Invalid request method for this resource: " + this.HttpParseSuccess.requestUrl);
         }
     }
 }

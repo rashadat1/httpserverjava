@@ -10,62 +10,65 @@ import java.nio.file.Files;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import HttpParser.HttpParserReturn;
+import HttpParser.HttpParseSuccess;
 import HttpResponderObject.HttpResponder;
 import HttpResponderObject.HttpResponderText;
 import customExceptions.ResourceNotFoundException;
 
 public class files implements EndpointHandler {
-    HttpParserReturn httpParserReturn;
+    HttpParseSuccess HttpParseSuccess;
 
-    public files(HttpParserReturn httpParserReturn) {
-        this.httpParserReturn = httpParserReturn;
+    public files(HttpParseSuccess HttpParseSuccess) {
+        this.HttpParseSuccess = HttpParseSuccess;
     }
+
     @Override
     public HttpResponder handle() throws ResourceNotFoundException, IOException {
-        if (httpParserReturn.requestMethod.equals("GET")) {
+        if (HttpParseSuccess.requestMethod.equals("GET")) {
             return handleGet();
-        } else if (httpParserReturn.requestMethod.equals("POST")) {
+        } else if (HttpParseSuccess.requestMethod.equals("POST")) {
             return handlePost();
         }
-        throw new ResourceNotFoundException("Invalid request method " + this.httpParserReturn.requestMethod + " for this resource: " + this.httpParserReturn.requestUrl);
+        throw new ResourceNotFoundException("Invalid request method " + this.HttpParseSuccess.requestMethod
+                + " for this resource: " + this.HttpParseSuccess.requestUrl);
     }
+
     public HttpResponder handleGet() throws IOException {
         String regex = "/files/([a-zA-Z0-9_-]*)";
         Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(this.httpParserReturn.requestUrl.trim());
+        Matcher matcher = pattern.matcher(this.HttpParseSuccess.requestUrl.trim());
         matcher.find();
 
         String fileToOpen = matcher.group(1);
-        String fullFilePathToOpen = this.httpParserReturn.directory + fileToOpen;
+        String fullFilePathToOpen = this.HttpParseSuccess.directory + fileToOpen;
         String fileContents = "";
         try (BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(fullFilePathToOpen)))) {
             String line;
             while ((line = in.readLine()) != null) {
                 fileContents += line;
             }
-            this.httpParserReturn.returnHeaders.put("Content-Length: ", String.valueOf(fileContents.length()));
+            this.HttpParseSuccess.returnHeaders.put("Content-Length: ", String.valueOf(fileContents.length()));
         }
-        this.httpParserReturn.returnHeaders.put("Content-Type: ", "application/octet-stream");
-        return new HttpResponderText(this.httpParserReturn.returnHeaders, fileContents.getBytes());
+        this.HttpParseSuccess.returnHeaders.put("Content-Type: ", "application/octet-stream");
+        return new HttpResponderText(this.HttpParseSuccess.returnHeaders, fileContents);
     }
+
     public HttpResponder handlePost() throws IOException {
         String regex = "/files/([a-zA-Z0-9_-]*)";
         Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(this.httpParserReturn.requestUrl.trim());
+        Matcher matcher = pattern.matcher(this.HttpParseSuccess.requestUrl.trim());
         matcher.find();
 
         String fileToCreate = matcher.group(1);
-        String pathToCreate = this.httpParserReturn.directory + fileToCreate;
+        String pathToCreate = this.HttpParseSuccess.directory + fileToCreate;
         if (!Files.exists(Paths.get(pathToCreate))) {
             // create the file if it does not exist
-            System.out.println("Creating new file at path: " + pathToCreate);
-            Files.createDirectories(Paths.get(this.httpParserReturn.directory));
+            Files.createDirectories(Paths.get(this.HttpParseSuccess.directory));
             Files.createFile(Paths.get(pathToCreate));
         }
         try (BufferedWriter bw = Files.newBufferedWriter(Paths.get(pathToCreate))) {
-            bw.write(this.httpParserReturn.requestBody);
+            bw.write(this.HttpParseSuccess.requestBody);
         }
-        return new HttpResponderText((this.httpParserReturn.version + " 201 Created\r\n\r\n").getBytes());
+        return new HttpResponderText(this.HttpParseSuccess.version + " 201 Created\r\n\r\n");
     }
 }

@@ -45,25 +45,26 @@ public class HttpsServer extends HttpServer {
             SSLServerSocket serverSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(this.port);
 
             serverSocket.setEnabledProtocols(new String[] { "TLSv1.2", "TLSv1.3" });
-            
+
             String[] strongSuites = {
-                "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-                "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-                "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"
+                    "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+                    "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+                    "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"
             };
             serverSocket.setEnabledCipherSuites((strongSuites));
-            
+
             serverSocket.setReuseAddress(true);
             while (true) {
                 SSLSocket clientSocket = (SSLSocket) serverSocket.accept();
                 clientSocket.setKeepAlive(true);
                 this.pool.submit(() -> super.handleClient(clientSocket));
             }
-            
+
         } catch (NoSuchAlgorithmException e) {
             System.out.println("No such algorithm in environment error triggered: " + e.getMessage());
         } catch (IOException e) {
-            System.out.println("IOException caught while opening ssl server socket on port- " + this.port + ": " + e.getMessage());
+            System.out.println(
+                    "IOException caught while opening ssl server socket on port- " + this.port + ": " + e.getMessage());
         } catch (KeyManagementException e) {
             System.out.println("Key Management Exception thrown: " + e.getMessage());
         } catch (UnrecoverableKeyException e) {
@@ -72,12 +73,13 @@ public class HttpsServer extends HttpServer {
             System.out.println("Key Store Exception thrown: " + e.getMessage());
         }
     }
+
     public static void main(String[] args) {
         String directory = null;
         if (args.length > 0) {
-            for (int i = 0; i < args.length / 2; i+=2) {
+            for (int i = 0; i < args.length / 2; i += 2) {
                 if (args[i].equals("--directory")) {
-                  directory = args[1];
+                    directory = args[1];
                 }
             }
         }

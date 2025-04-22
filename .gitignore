@@ -4,3 +4,6 @@ target/
 *.pem
 *.p12
 *.class
+.classpath
+.project
+.settings
