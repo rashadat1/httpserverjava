@@ -6,7 +6,13 @@ import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import HttpParser.HttpParseFail;
+import HttpParser.HttpParseSuccess;
 import HttpParser.HttpParser;
+import HttpParser.HttpParserReturn;
+import HttpResponderObject.HttpResponder;
+import api.v1.routers.EndpointHandler;
+import api.v1.routers.EndpointHandlerFactory;
 import customExceptions.MalformedRequestException;
 
 
@@ -27,14 +33,26 @@ public class HttpServer implements Runnable {
 
         InputStream inputStream = clientSocket.getInputStream();
         OutputStream outputStream = clientSocket.getOutputStream();
-        
-        HttpParser httpParser = new HttpParser(inputStream, this.directory);
-        httpParser.parseAndReturnHttpResponseString();
-        String response = "";
-        System.out.println("Response from Http Server:\r\n" + response);
 
-        outputStream.write(response.getBytes());
-        if (httpParser.closeConnection) {
+        HttpParser httpParser = new HttpParser(inputStream, this.directory);
+        HttpParserReturn parsedRequest = httpParser.parseAndReturnHttpResponseString();
+
+        byte[] responseBytes = new byte[0];
+        if (parsedRequest instanceof HttpParseFail) {
+          // incorrectly formatted request
+          String errorMessage = ((HttpParseFail) parsedRequest).errorMessage;
+          responseBytes = errorMessage.getBytes();
+        }
+        else {
+          EndpointHandlerFactory router = new EndpointHandlerFactory(((HttpParseSuccess) parsedRequest));
+          HttpResponder responseFormatter = router.executeRequestHandler();
+          responseBytes = responseFormatter.formatResponse();
+
+        }
+        System.out.println("Response from Http Server:\r\n" + responseBytes.toString());
+
+        outputStream.write(responseBytes);
+        if (httpParser.connectionHeaderValue.equals("close")) {
           clientSocket.close();
           break;
         }

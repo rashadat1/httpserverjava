@@ -26,7 +26,7 @@ public class HttpParser {
     Set<String> validEncodings;
     String contentType;
     String clientEncoding;
-    String connectionHeaderValue;
+    public String connectionHeaderValue;
 
     public HttpParser(InputStream inputStream, String directory) {
         this.inputStream = inputStream;

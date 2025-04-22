@@ -8,39 +8,36 @@ import HttpParser.HttpParseSuccess;
 import HttpResponderObject.HttpResponder;
 import HttpResponderObject.HttpResponderText;
 import api.v1.routers.EndpointHandler;
+import customExceptions.ResourceNotFoundException;
 
 public class Echo implements EndpointHandler {
-    HttpParseSuccess HttpParseSuccess;
+    HttpParseSuccess httpParse;
 
     public Echo(HttpParseSuccess HttpParseSuccess) {
-        this.HttpParseSuccess = HttpParseSuccess;
+        this.httpParse = HttpParseSuccess;
     }
 
     @Override
     public HttpResponder handle() throws IOException {
-        String regex = "/echo/([a-zA-Z0-9-]*)";
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(this.HttpParseSuccess.requestUrl.trim());
-        matcher.find();
-
-        String toEcho = matcher.group(1);
-        String responseBody = toEcho;
-        /*
-         * if
-         * (this.HttpParseSuccess.returnHeaders.get("Content-Encoding: ").equals("gzip")
-         * ) {
-         * ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
-         * try (GZIPOutputStream gzipOut = new GZIPOutputStream(byteOut)) {
-         * gzipOut.write(responseBody.getBytes());
-         * }
-         * responseBodyBytes = byteOut.toByteArray();
-         * contentLength = String.valueOf(responseBodyBytes.length);
-         * } else {
-         * responseBodyBytes = responseBody.getBytes();
-         * }
-         */
-        this.HttpParseSuccess.returnHeaders.put("Content-Type: ", "text/plain");
-        return new HttpResponderText(this.HttpParseSuccess.returnHeaders, responseBody);
+        try {
+            if (this.httpParse.requestMethod.equals("GET")) {
+                String regex = "/echo/([a-zA-Z0-9-]*)";
+                Pattern pattern = Pattern.compile(regex);
+                Matcher matcher = pattern.matcher(this.httpParse.requestUrl.trim());
+                matcher.find();
+        
+                String toEcho = matcher.group(1);
+                String responseBody = toEcho;
+        
+                this.httpParse.returnHeaders.put("Content-Type: ", "text/plain");
+                return new HttpResponderText(this.httpParse.returnHeaders, responseBody);
+            }
+            throw new ResourceNotFoundException("Invalid request method " + this.httpParse.requestMethod
+              + " for this resource: " + this.httpParse.requestUrl);
+        } catch (ResourceNotFoundException e) {
+            System.err.println("Resource Not Found Exception occurred: " + e.getMessage());
+            return new HttpResponderText(e);
+        }
 
     }
 

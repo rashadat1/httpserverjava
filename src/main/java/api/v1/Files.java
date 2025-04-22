@@ -24,14 +24,18 @@ public class files implements EndpointHandler {
     }
 
     @Override
-    public HttpResponder handle() throws ResourceNotFoundException, IOException {
-        if (HttpParseSuccess.requestMethod.equals("GET")) {
-            return handleGet();
-        } else if (HttpParseSuccess.requestMethod.equals("POST")) {
-            return handlePost();
+    public HttpResponder handle() throws IOException {
+        try {
+            if (HttpParseSuccess.requestMethod.equals("GET")) {
+                return handleGet();
+            } else if (HttpParseSuccess.requestMethod.equals("POST")) {
+                return handlePost();
+            }
+            throw new ResourceNotFoundException("Invalid request method " + this.HttpParseSuccess.requestMethod + " for this resource: " + this.HttpParseSuccess.requestUrl);
+        } catch (ResourceNotFoundException e) {
+            return new HttpResponderText(e);
         }
-        throw new ResourceNotFoundException("Invalid request method " + this.HttpParseSuccess.requestMethod
-                + " for this resource: " + this.HttpParseSuccess.requestUrl);
+
     }
 
     public HttpResponder handleGet() throws IOException {
