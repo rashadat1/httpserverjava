@@ -1,4 +1,4 @@
-package api.v1.routers;
+package api.v1.router;
 
 import HttpResponderObject.HttpResponder;
 import HttpResponderObject.HttpResponderText;

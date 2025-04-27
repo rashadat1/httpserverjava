@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 import HttpParser.HttpParseSuccess;
 import HttpResponderObject.HttpResponder;
 import HttpResponderObject.HttpResponderText;
-import api.v1.routers.EndpointHandler;
+import api.v1.router.EndpointHandler;
 import customExceptions.ResourceNotFoundException;
 
 public class files implements EndpointHandler {

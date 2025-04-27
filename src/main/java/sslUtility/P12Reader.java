@@ -1,3 +1,4 @@
+package sslUtility;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -7,7 +8,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 
 public class P12Reader {
-    KeyStore keyStore;
+    public KeyStore keyStore;
 
     public P12Reader() {
         this.keyStore = null;

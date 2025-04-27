@@ -15,6 +15,7 @@ import javax.net.ssl.SSLSocket;
 public class HttpsServer extends HttpServer {
     private final int port;
     private final ExecutorService pool;
+    @SuppressWarnings("unused")
     private final String directory;
     private int poolSize;
 
