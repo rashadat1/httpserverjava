@@ -11,7 +11,7 @@ import HttpParser.HttpParseSuccess;
 import HttpParser.HttpParser;
 import HttpParser.HttpParserReturn;
 import HttpResponderObject.HttpResponder;
-import api.v1.routers.EndpointHandlerFactory;
+import api.v1.router.EndpointHandlerFactory;
 import customExceptions.MalformedRequestException;
 
 
@@ -42,6 +42,7 @@ public class HttpServer implements Runnable {
           String errorMessage = ((HttpParseFail) parsedRequest).errorMessage;
           responseBytes = errorMessage.getBytes();
         }
+        // Middleware Handler
         else {
           EndpointHandlerFactory router = new EndpointHandlerFactory(((HttpParseSuccess) parsedRequest));
           HttpResponder responseFormatter = router.executeRequestHandler();

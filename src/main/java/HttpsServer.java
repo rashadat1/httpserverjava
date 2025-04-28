@@ -12,6 +12,9 @@ import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 
+import services.RedisClient;
+import sslUtility.P12Reader;
+
 public class HttpsServer extends HttpServer {
     private final int port;
     private final ExecutorService pool;
@@ -55,6 +58,12 @@ public class HttpsServer extends HttpServer {
             serverSocket.setEnabledCipherSuites((strongSuites));
 
             serverSocket.setReuseAddress(true);
+            try {
+                RedisClient redisClientTest = new RedisClient();
+            } catch (Exception e) {
+                System.err.println("Error when starting Redis Client / handling handshake: " + e.getMessage());
+                
+            }
             while (true) {
                 SSLSocket clientSocket = (SSLSocket) serverSocket.accept();
                 clientSocket.setKeepAlive(true);

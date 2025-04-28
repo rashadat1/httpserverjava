@@ -16,7 +16,7 @@ public class P12Reader {
 
     public void readP12File() {
         try {
-            FileInputStream fis = new FileInputStream(System.getProperty("user.dir") + "/../../../keystore.p12");
+            FileInputStream fis = new FileInputStream(System.getProperty("user.dir") + "/keystore.p12");
             KeyStore keyStore = KeyStore.getInstance("PKCS12");
             keyStore.load(fis, "changeit".toCharArray());
 
