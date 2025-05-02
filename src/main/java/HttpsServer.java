@@ -13,7 +13,8 @@ import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 
 import services.RedisClient;
-import sslUtility.P12Reader;
+import sslUtility.EnvLoader;
+import sslUtility.SSLUtil;
 
 public class HttpsServer extends HttpServer {
     private final int port;
@@ -35,15 +36,9 @@ public class HttpsServer extends HttpServer {
     public void run() {
         System.out.println("Opening SSL server socket to listen on port 443");
 
-        P12Reader p12Reader = new P12Reader();
-        p12Reader.readP12File();
-
         try {
-            SSLContext sslContext = SSLContext.getInstance("TLS");
-
-            KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-            kmf.init(p12Reader.keyStore, "changeit".toCharArray());
-            sslContext.init(kmf.getKeyManagers(), null, null);
+            EnvLoader.loadEnv(".env");
+            SSLContext sslContext = SSLUtil.createSSLContext(System.getProperty("user.dir") + "/certsForAppExchange/keystore.p12", System.getProperty("APPCLIENTSTORE_PASSWORD"));
             SSLServerSocketFactory sslServerSocketFactory = sslContext.getServerSocketFactory();
 
             SSLServerSocket serverSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(this.port);
@@ -81,6 +76,8 @@ public class HttpsServer extends HttpServer {
             System.out.println("Key cannot be recovered error: " + e.getMessage());
         } catch (KeyStoreException e) {
             System.out.println("Key Store Exception thrown: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("Exception occurred: " + e.getMessage());
         }
     }
 

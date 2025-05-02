@@ -8,6 +8,7 @@ import java.nio.channels.SocketChannel;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
+import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 
 import sslUtility.EnvLoader;
@@ -16,8 +17,10 @@ import sslUtility.SSLUtil;
 public class RedisClient {
     public SocketChannel redisSocket;
     public SSLContext sslContext;
+    public SSLEngine sslEngine;
 
     Boolean handshaking;
+    Boolean isAuthenticated = false;
 
     ByteBuffer peerNetData; // encrypted bytes received from channel
     ByteBuffer peerAppData; // decrypted bytes after unwrap
@@ -32,9 +35,9 @@ public class RedisClient {
         System.out.println("Loading environment");
         String keystorePassword = System.getProperty("KEYSTORE_PASSWORD");
         String truststorePassword = System.getProperty("TRUSTSTORE_PASSWORD");
-        sslContext = SSLUtil.createSSLContext(keystorePassword, truststorePassword);
+        sslContext = SSLUtil.createSSLContext(System.getProperty("user.dir") + "/certs/client/client-keystore.p12", keystorePassword, System.getProperty("user.dir") + "/certs/ca/ca-truststore.p12", truststorePassword);
 
-        SSLEngine sslEngine = sslContext.createSSLEngine("TarikRashada", 6379); // for SSL purposes
+        sslEngine = sslContext.createSSLEngine("TarikRashada", 6379); // for SSL purposes
         sslEngine.setEnabledProtocols(new String[] {"TLSv1.3"});
         sslEngine.setEnabledCipherSuites(new String[] {
             "TLS_AES_128_GCM_SHA256",
@@ -46,13 +49,13 @@ public class RedisClient {
         sslEngine.setUseClientMode(true);
         sslEngine.beginHandshake();
         System.out.println("Beginning Handshaking");
-        this.handshaking = true;
+        handshaking = true;
 
         SSLSession session = sslEngine.getSession();
-        this.peerNetData = ByteBuffer.allocate(session.getPacketBufferSize());
-        this.peerAppData = ByteBuffer.allocate(session.getApplicationBufferSize());
-        this.netData = ByteBuffer.allocate(session.getPacketBufferSize());
-        this.appData = ByteBuffer.allocate(session.getApplicationBufferSize());
+        peerNetData = ByteBuffer.allocate(session.getPacketBufferSize());
+        peerAppData = ByteBuffer.allocate(session.getApplicationBufferSize());
+        netData = ByteBuffer.allocate(session.getPacketBufferSize());
+        appData = ByteBuffer.allocate(session.getApplicationBufferSize());
 
         SSLEngineResult result;
         SSLEngineResult.HandshakeStatus handshakeStatus;
@@ -98,32 +101,32 @@ public class RedisClient {
 
                 case NEED_WRAP:
                     System.out.println("NEED WRAP STEP");
-                    this.netData.clear();
-                    result = sslEngine.wrap(this.appData, this.netData);
-                    this.netData.flip();
-                    while (this.netData.hasRemaining()) {
+                    netData.clear();
+                    result = sslEngine.wrap(appData, netData);
+                    netData.flip();
+                    while (netData.hasRemaining()) {
                         System.out.println("Trying to write to socket");
-                        int bytesWritten = redisSocket.write(this.netData);
+                        int bytesWritten = redisSocket.write(netData);
                         if (bytesWritten == 0) {
-                            Thread.sleep(2);
+                            break;
                         }
                     }
-                    int bytesReadWrap = redisSocket.read(this.peerNetData);
+                    int bytesReadWrap = redisSocket.read(peerNetData);
                     if (bytesReadWrap == -1) {
                         throw new IOException("Channel closed after wrap");
                     }
-                    this.peerNetData.flip();
-                    result = sslEngine.unwrap(this.peerNetData, this.peerAppData);
-                    this.peerNetData.compact();
+                    peerNetData.flip();
+                    result = sslEngine.unwrap(peerNetData, peerAppData);
+                    peerNetData.compact();
                     handshakeStatus = result.getHandshakeStatus();
                     System.out.println("State after NEED_WRAP: " + handshakeStatus);
                     break;
 
                 case NEED_UNWRAP_AGAIN:
                     System.out.println("NEED UNWRAP AGAIN STEP");
-                    this.peerNetData.flip();
-                    result = sslEngine.unwrap(this.peerNetData, this.peerAppData);
-                    this.peerNetData.compact();
+                    peerNetData.flip();
+                    result = sslEngine.unwrap(peerNetData, peerAppData);
+                    peerNetData.compact();
                     handshakeStatus = result.getHandshakeStatus();
                     System.out.println("State after NEED_UNWRAP_AGAIN: " + handshakeStatus);
                     break;
@@ -140,16 +143,103 @@ public class RedisClient {
 
                 case FINISHED:
                 case NOT_HANDSHAKING:
-                    this.handshaking = false;
+                    handshaking = false;
                     System.out.println("Handshake complete for connection: " + redisSocket.getRemoteAddress());
                     return;
                 default:
                     throw new IllegalStateException("Unexpected handshake status: " + handshakeStatus);
             }
-            if (handshakeStatus == SSLEngineResult.HandshakeStatus.NEED_UNWRAP && this.peerNetData.position() == 0) {
+            if (handshakeStatus == SSLEngineResult.HandshakeStatus.NEED_UNWRAP && peerNetData.position() == 0) {
 				break;
 			}
         }
+    }
+
+    public void authenticateConnection() {
+        System.out.println("Checking if authenticated");
+        try {
+            if (!isAuthenticated) {
+                EnvLoader.loadEnv(".env");
+                String redis_username = System.getProperty("REDIS_USERNAME");
+                String redis_password = System.getProperty("REDIS_PASSWORD");
+                
+                System.out.println("Sending AUTH command to authenticate with redis");
+                String respAuthString = "*3\r\n$4\r\nAUTH\r\n$" 
+                    + redis_username.length() + "\r\n" 
+                    + redis_username + "\r\n$"
+                    + redis_password.length() + "\r\n"
+                    + redis_password + "\r\n";
+                
+                encryptAndSendMessage(respAuthString);
+                String message = readEncrypted();
+
+                System.out.println("Message received after authentication: " + message);
+                if (message.equals("+OK\r\n")) {
+                    isAuthenticated = true;
+                    System.out.println("Connection with Redis is authenticated");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error authenticating with Redis: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    private void encryptAndSendMessage(String message) throws Exception {
+        appData.clear();
+        netData.clear();
+
+        appData.put(message.getBytes());
+        appData.flip();
+
+        while (appData.hasRemaining()) {
+            netData.clear();
+            sslEngine.wrap(appData, netData);
+            
+            netData.flip();
+            while (netData.hasRemaining()) {
+                redisSocket.write(netData);
+            }
+        }
+        netData.clear();
+        appData.clear();
+    }
+    private String readEncrypted() throws Exception {
+        peerAppData.clear();
+        Thread.sleep(6000);
+        int bytesRead = redisSocket.read(peerNetData);
+        if (bytesRead == -1) {
+            throw new IOException("Redis client socket closed unexpectedly");
+        }
+        peerNetData.flip();
+        while (peerNetData.hasRemaining()) {
+            SSLEngineResult result = sslEngine.unwrap(peerNetData, peerAppData);
+            switch (result.getStatus()) {
+                case OK:
+                    break;
+                case BUFFER_OVERFLOW:
+                    throw new SSLException("App buffer overflow during reading from server");
+                case BUFFER_UNDERFLOW:
+                    peerNetData.compact();
+                    bytesRead = redisSocket.read(peerNetData);
+                    peerNetData.flip();
+                    continue;
+                case CLOSED:
+                    throw new SSLException("SSL connection closed unexpectedly");
+                    
+            }
+        }
+        peerNetData.compact();
+        peerAppData.flip();
+
+        byte[] receivedBytes = new byte[peerAppData.remaining()];
+        peerAppData.get(receivedBytes);
+        String message = new String(receivedBytes);
+
+        peerNetData.clear();
+        peerAppData.clear();
+        return message;
+    }
+    public String execute(String query) {
 
     }
 }
